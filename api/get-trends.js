@@ -1,51 +1,60 @@
-const googleTrends = require('google-trends-api');
+const axios = require('axios');
+const cheerio = require('cheerio');
 
+// The public URL for Google's daily trending searches page
+const TRENDS_URL = 'https://trends.google.com/trends/trendingsearches/daily?geo=US';
+
+// This is the main function Vercel will run
 module.exports = async (req, res) => {
+    // Set headers for CORS and caching
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate'); 
+    res.setHeader('Cache-Control', 's-maxage=43200, stale-while-revalidate'); // Cache for 12 hours
 
+    // Handle pre-flight requests for CORS
     if (req.method === 'OPTIONS') {
         return res.status(200).end();
     }
 
     try {
-        // 这个库在Vercel的服务器环境中可能不稳定。
-        // 我们将直接返回一些高质量的、常青的探索方向作为备用方案。
-        // 这保证了插件的核心功能在任何情况下都能正常工作。
-        
-        const evergreenIdeas = [
-            "Custom Pet Portrait",
-            "Personalized Wedding Gift",
-            "Anime Inspired LED Sign",
-            "Minimalist Gold Necklace",
-            "Boho Wall Decor",
-            "Digital Planner 2025",
-            "Gamer Room Decor",
-            "Handmade Ceramic Mug",
-            "Taylor Swift Merch",
-            "Bookish T-Shirt",
-            "Cyberpunk Desk Mat",
-            "Dungeons and Dragons Dice Box",
-            "Unique Engagement Ring",
-            "New Mom Gift Basket",
-            "Vintage Style T-Shirt"
-        ];
-        
-        // 打乱数组以增加随机性
-        const shuffledTrends = evergreenIdeas.sort(() => 0.5 - Math.random());
+        // Step 1: Fetch the HTML of the public Google Trends page
+        const { data } = await axios.get(TRENDS_URL, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36'
+            }
+        });
 
+        // Step 2: Load the HTML into Cheerio for parsing
+        const $ = cheerio.load(data);
+
+        // Step 3: Find and extract the trend titles
+        const trendingTopics = [];
+        $('.feed-list-wrapper').each((i, list) => {
+            $(list).find('.feed-item').each((j, item) => {
+                const title = $(item).find('.title a').text().trim();
+                if (title) {
+                    trendingTopics.push(title);
+                }
+            });
+        });
+
+        if (trendingTopics.length === 0) {
+            throw new Error("Could not find any trending topics on the page.");
+        }
+
+        // Step 4: Send a successful response
         res.status(200).json({
             success: true,
+            source: "Live Google Trends HTML Scrape on Vercel",
             lastUpdated: new Date().toISOString(),
-            trends: shuffledTrends.slice(0, 10) // 每次返回10个随机的
+            trends: trendingTopics.slice(0, 20)
         });
 
     } catch (error) {
-        console.error('Google Trends API Error:', error);
+        console.error('Scraping Error:', error);
         res.status(500).json({
             success: false,
-            error: 'Failed to fetch Google Trends data.',
+            error: 'Failed to scrape Google Trends data.',
             details: error.message
         });
     }
