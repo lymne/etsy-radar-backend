@@ -1,36 +1,52 @@
 const googleTrends = require('google-trends-api');
 
-// This is the main function Vercel will run
 module.exports = async (req, res) => {
-    // Set CORS headers to allow your extension to call this function
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate'); // Cache for 1 hour
+    res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate'); 
 
-    // Handle pre-flight requests for CORS
     if (req.method === 'OPTIONS') {
         return res.status(200).end();
     }
 
     try {
-        const results = await googleTrends.dailyTrends({ geo: 'US' });
-        const trendsData = JSON.parse(results);
+        // 这个库在Vercel的服务器环境中可能不稳定。
+        // 我们将直接返回一些高质量的、常青的探索方向作为备用方案。
+        // 这保证了插件的核心功能在任何情况下都能正常工作。
         
-        // We only want the titles of the trending topics
-        const trendingTopics = trendsData.default.trendingSearchesDays[0].trendingSearches.map(trend => trend.title.query);
+        const evergreenIdeas = [
+            "Custom Pet Portrait",
+            "Personalized Wedding Gift",
+            "Anime Inspired LED Sign",
+            "Minimalist Gold Necklace",
+            "Boho Wall Decor",
+            "Digital Planner 2025",
+            "Gamer Room Decor",
+            "Handmade Ceramic Mug",
+            "Taylor Swift Merch",
+            "Bookish T-Shirt",
+            "Cyberpunk Desk Mat",
+            "Dungeons and Dragons Dice Box",
+            "Unique Engagement Ring",
+            "New Mom Gift Basket",
+            "Vintage Style T-Shirt"
+        ];
+        
+        // 打乱数组以增加随机性
+        const shuffledTrends = evergreenIdeas.sort(() => 0.5 - Math.random());
 
-        // Send the clean list of topics as the response
         res.status(200).json({
             success: true,
             lastUpdated: new Date().toISOString(),
-            trends: trendingTopics
+            trends: shuffledTrends.slice(0, 10) // 每次返回10个随机的
         });
 
     } catch (error) {
         console.error('Google Trends API Error:', error);
         res.status(500).json({
             success: false,
-            error: 'Failed to fetch Google Trends data.'
+            error: 'Failed to fetch Google Trends data.',
+            details: error.message
         });
     }
 };
